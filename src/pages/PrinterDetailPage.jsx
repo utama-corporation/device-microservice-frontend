@@ -11,6 +11,14 @@ import { formatDateTime, formatDisplayValue } from "../utils/formatters";
 
 const LIMIT = 10;
 
+function getLast14DaysRange() {
+  const to = new Date();
+  const from = new Date();
+  from.setDate(from.getDate() - 13);
+  const fmt = (d) => d.toLocaleDateString("en-CA");
+  return { from: fmt(from), to: fmt(to) };
+}
+
 function useCountUp(target, duration = 800) {
   const [value, setValue] = useState(0);
   useEffect(() => {
@@ -401,22 +409,9 @@ function DailyProgressChart({ summaryData }) {
 
   return (
     <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 bg-slate-50 px-5 py-3">
-        <div>
-          <p className="text-sm font-semibold text-slate-700">Daily Summary</p>
-          <p className="text-xs text-slate-500">
-            Click a bar to view daily details.
-          </p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="rounded-full bg-slate-100 px-3 py-0.5 text-xs font-semibold text-slate-600">
-            {summaryData.scope === "custom" ? "Custom range" : "Last 7 days"}
-          </span>
-          <span className="rounded-full bg-brand-50 px-3 py-0.5 text-xs font-bold text-brand-700">
-            {formatDateLong(summaryData.range?.from)} →{" "}
-            {formatDateLong(summaryData.range?.to)}
-          </span>
-        </div>
+      <div className="border-b border-slate-100 bg-slate-50 px-5 py-3">
+        <p className="text-sm font-semibold text-slate-700">Daily Summary</p>
+        <p className="text-xs text-slate-500">Click a bar to view daily details.</p>
       </div>
 
       <div className="p-5">
@@ -729,9 +724,10 @@ function PrinterDetailPage() {
   const [resetLogs, setResetLogs] = useState([]);
   const [printMeta, setPrintMeta] = useState({ page: 1, totalPages: 1 });
   const [resetMeta, setResetMeta] = useState({ page: 1, totalPages: 1 });
+  const [avgPrintCountAtReset, setAvgPrintCountAtReset] = useState(null);
   const [summaryData, setSummaryData] = useState(null);
-  const [summaryFrom, setSummaryFrom] = useState("");
-  const [summaryTo, setSummaryTo] = useState("");
+  const [summaryFrom, setSummaryFrom] = useState(() => getLast14DaysRange().from);
+  const [summaryTo, setSummaryTo] = useState(() => getLast14DaysRange().to);
   const [summaryLoading, setSummaryLoading] = useState(false);
   const [summaryError, setSummaryError] = useState("");
   const [activeTab, setActiveTab] = useState("print-logs");
@@ -803,7 +799,7 @@ function PrinterDetailPage() {
         await Promise.allSettled([
           printerService.getPrinterLogsPayload(lookupValue, 1, LIMIT),
           printerService.getResetLogsPayload(lookupValue, 1, LIMIT),
-          printerService.getPrinterLogSummary(lookupValue),
+          printerService.getPrinterLogSummary(lookupValue, getLast14DaysRange()),
         ]);
 
       const printPayload =
@@ -843,6 +839,7 @@ function PrinterDetailPage() {
         page: resetPayload?.pagination?.page ?? 1,
         totalPages: resetPayload?.pagination?.totalPages ?? 1,
       });
+      setAvgPrintCountAtReset(resetPayload?.printer?.avgPrintCountAtReset ?? null);
 
       if (summaryPayload) {
         setSummaryData(summaryPayload);
@@ -914,6 +911,7 @@ function PrinterDetailPage() {
           page: payload?.pagination?.page ?? page,
           totalPages: payload?.pagination?.totalPages ?? 1,
         });
+        setAvgPrintCountAtReset(payload?.printer?.avgPrintCountAtReset ?? null);
       } finally {
         setLogLoading(false);
       }
@@ -950,7 +948,10 @@ function PrinterDetailPage() {
 
   const resetSummaryRange = async () => {
     if (!lookupId) return;
-    await loadSummary(lookupId);
+    const range = getLast14DaysRange();
+    setSummaryFrom(range.from);
+    setSummaryTo(range.to);
+    await loadSummary(lookupId, range);
   };
 
   return (
@@ -1130,30 +1131,55 @@ function PrinterDetailPage() {
                   </tbody>
                 </table>
               ) : (
-                <table className="min-w-full text-sm">
-                  <thead className="bg-slate-100 text-left text-slate-600">
-                    <tr>
-                      <th className="px-3 py-2 font-semibold">ID</th>
-                      <th className="px-3 py-2 font-semibold">doneBy</th>
-                      <th className="px-3 py-2 font-semibold">doneAt</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {resetLogs.map((log) => (
-                      <tr key={log.id} className="border-t border-slate-100">
-                        <td className="px-3 py-2 font-mono text-xs text-slate-500">
-                          {formatDisplayValue(log.id)}
-                        </td>
-                        <td className="px-3 py-2">
-                          {formatDisplayValue(log.doneBy)}
-                        </td>
-                        <td className="px-3 py-2">
-                          {formatDateTime(log.doneAt)}
-                        </td>
+                <>
+                  {avgPrintCountAtReset !== null && (
+                    <div className="mb-3 flex items-center gap-2 rounded-xl bg-slate-50 px-4 py-2.5 text-sm">
+                      <span className="text-slate-500">Rata-rata print sebelum reset</span>
+                      <span className="font-bold text-slate-900">{avgPrintCountAtReset}x</span>
+                    </div>
+                  )}
+                  <table className="min-w-full text-sm">
+                    <thead className="bg-slate-100 text-left text-slate-600">
+                      <tr>
+                        <th className="px-3 py-2 font-semibold">ID</th>
+                        <th className="px-3 py-2 font-semibold">doneBy</th>
+                        <th className="px-3 py-2 font-semibold">doneAt</th>
+                        <th className="px-3 py-2 font-semibold">Print saat Reset</th>
+                        <th className="px-3 py-2 font-semibold">Remark</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody>
+                      {resetLogs.map((log) => (
+                        <tr key={log.id} className="border-t border-slate-100">
+                          <td className="px-3 py-2 font-mono text-xs text-slate-500">
+                            {formatDisplayValue(log.id)}
+                          </td>
+                          <td className="px-3 py-2">
+                            {formatDisplayValue(log.doneBy)}
+                          </td>
+                          <td className="px-3 py-2">
+                            {formatDateTime(log.doneAt)}
+                          </td>
+                          <td className="px-3 py-2">
+                            {log.printCountAtReset !== null && log.printCountAtReset !== undefined ? (
+                              <span className="font-semibold text-slate-800">{log.printCountAtReset}x</span>
+                            ) : (
+                              <span className="text-slate-400">-</span>
+                            )}
+                          </td>
+                          <td className="px-3 py-2 text-slate-600">
+                            {log.remark ? (
+                              log.remark
+                            ) : (
+                              <span className="text-slate-400">-</span>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </>
+
               )}
 
               <Pagination

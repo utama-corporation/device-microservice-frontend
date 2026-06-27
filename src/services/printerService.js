@@ -83,8 +83,8 @@ export const printerService = {
     });
     return normalizeData(response);
   },
-  resetPrinter: async ({ printerId }) => {
-    const response = await api.post("/reset", { printerId });
+  resetPrinter: async ({ printerId, remark }) => {
+    const response = await api.post("/reset", { printerId, remark });
     return normalizeData(response);
   },
   getMaxPrintCountSetting: async () => {
