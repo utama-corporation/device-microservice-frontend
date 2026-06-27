@@ -59,3 +59,5 @@ src/
 - Setelah reset sukses:
   - tampilkan toast sukses
   - refresh data terkait (detail/log/list) via callback + event `printers:updated`
+
+<!-- deploy_triger_runner -->
