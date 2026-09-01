@@ -12,8 +12,10 @@ const normalizeList = (payload) => {
 };
 
 export const printerService = {
-  addPrinter: async ({ mac, name }) => {
-    const response = await api.post("/", { mac, name });
+  // Bluetooth: { mac, name }
+  // Jaringan : { ipAddress, port, name, labelWidthMm, labelHeightMm, connectionType: "NETWORK" }
+  addPrinter: async (payload) => {
+    const response = await api.post("/", payload);
     return normalizeData(response);
   },
   updatePrinterName: async ({ id, identifier, name }) => {
@@ -24,6 +26,23 @@ export const printerService = {
         const response = await api.patch(`/${encodeURIComponent(candidate)}`, {
           name,
         });
+        return normalizeData(response);
+      } catch (error) {
+        lastError = error;
+      }
+    }
+    throw lastError || new Error("Gagal update printer.");
+  },
+  // Update nama + (untuk printer jaringan) IP / port / ukuran label.
+  updatePrinter: async ({ id, identifier, ...body }) => {
+    const candidates = [id, identifier].filter(Boolean);
+    let lastError = null;
+    for (const candidate of candidates) {
+      try {
+        const response = await api.patch(
+          `/${encodeURIComponent(candidate)}`,
+          body,
+        );
         return normalizeData(response);
       } catch (error) {
         lastError = error;

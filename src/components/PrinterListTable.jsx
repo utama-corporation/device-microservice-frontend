@@ -2,6 +2,23 @@ import { Link } from "react-router-dom";
 import { formatDateTime, formatDisplayValue } from "../utils/formatters";
 import StatusBadge from "./StatusBadge";
 
+function OnlineBadge({ online }) {
+  const cfg =
+    online === true
+      ? { c: "bg-green-50 text-green-700", dot: "bg-green-500", t: "Online" }
+      : online === false
+        ? { c: "bg-rose-50 text-rose-600", dot: "bg-rose-500", t: "Offline" }
+        : { c: "bg-slate-100 text-slate-400", dot: "bg-slate-300", t: "—" };
+  return (
+    <span
+      className={`inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-bold ${cfg.c}`}
+    >
+      <span className={`h-1.5 w-1.5 rounded-full ${cfg.dot}`} />
+      {cfg.t}
+    </span>
+  );
+}
+
 function PrinterListTable({ printers, onOpenEdit, onDelete }) {
   return (
     <>
@@ -10,7 +27,7 @@ function PrinterListTable({ printers, onOpenEdit, onDelete }) {
         <table className="min-w-full text-sm">
           <thead>
             <tr className="border-b border-slate-100 bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
-              <th className="px-5 py-3">MAC Address</th>
+              <th className="px-5 py-3">MAC / IP</th>
               <th className="px-5 py-3">Name</th>
               <th className="px-5 py-3">Print Usage</th>
               <th className="px-5 py-3">Status</th>
@@ -26,9 +43,19 @@ function PrinterListTable({ printers, onOpenEdit, onDelete }) {
                 className="group transition-colors duration-150 hover:bg-slate-50"
               >
                 <td className="px-5 py-3.5">
-                  <span className="font-mono text-xs font-semibold text-slate-700">
-                    {formatDisplayValue(printer.identifier || printer.id)}
-                  </span>
+                  <div className="flex flex-col gap-0.5">
+                    <span className="flex items-center gap-2 font-mono text-xs font-semibold text-slate-700">
+                      {formatDisplayValue(printer.identifier || printer.id)}
+                      {printer.connectionType === "NETWORK" && (
+                        <OnlineBadge online={printer.online} />
+                      )}
+                    </span>
+                    {printer.connectionType === "NETWORK" && printer.network && (
+                      <span className="text-[11px] text-slate-400">
+                        {`${printer.network.labelWidthMm}×${printer.network.labelHeightMm} mm`}
+                      </span>
+                    )}
+                  </div>
                 </td>
                 <td className="px-5 py-3.5">
                   <span className="font-medium text-slate-900">
@@ -99,6 +126,9 @@ function PrinterListTable({ printers, onOpenEdit, onDelete }) {
               <div className="min-w-0">
                 <p className="font-mono text-xs font-semibold text-slate-500">
                   {formatDisplayValue(printer.identifier || printer.id)}
+                  {printer.connectionType === "NETWORK" && printer.network
+                    ? ` · ${printer.network.labelWidthMm}×${printer.network.labelHeightMm} mm`
+                    : ""}
                 </p>
                 <h3 className="mt-0.5 truncate text-base font-bold text-slate-900">
                   {formatDisplayValue(printer.name)}

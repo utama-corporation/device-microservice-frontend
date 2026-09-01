@@ -7,6 +7,7 @@ import Loader from "../components/Loader";
 import PrinterListTable from "../components/PrinterListTable";
 import SearchBar from "../components/SearchBar";
 import SettingMaxPrintCountModal from "../components/SettingMaxPrintCountModal";
+import Tabs from "../components/Tabs";
 import { onPrintersUpdated } from "../hooks/usePrinterEvents";
 import { useToast } from "../hooks/useToast";
 import { printerService } from "../services/printerService";
@@ -20,6 +21,7 @@ function PrinterListPage() {
   const [maxPrintOpen, setMaxPrintOpen] = useState(false);
   const [selectedForEdit, setSelectedForEdit] = useState(null);
   const [maxPrintCount, setMaxPrintCount] = useState(null);
+  const [tab, setTab] = useState("BLUETOOTH");
   const { addToast } = useToast();
 
   const loadData = useCallback(async () => {
@@ -51,17 +53,30 @@ function PrinterListPage() {
 
   useEffect(() => onPrintersUpdated(loadData), [loadData]);
 
+  const counts = useMemo(() => {
+    let network = 0;
+    for (const p of printers) {
+      if (p.connectionType === "NETWORK") network += 1;
+    }
+    return { network, bluetooth: printers.length - network };
+  }, [printers]);
+
   const filteredPrinters = useMemo(() => {
-    if (!search.trim()) return printers;
+    const byTab = printers.filter((p) =>
+      tab === "NETWORK"
+        ? p.connectionType === "NETWORK"
+        : p.connectionType !== "NETWORK",
+    );
+    if (!search.trim()) return byTab;
     const keyword = search.toLowerCase();
-    return printers.filter((printer) => {
+    return byTab.filter((printer) => {
       const identifier = String(
         printer.identifier || printer.id || "",
       ).toLowerCase();
       const name = String(printer.name || "").toLowerCase();
       return identifier.includes(keyword) || name.includes(keyword);
     });
-  }, [printers, search]);
+  }, [printers, search, tab]);
 
   const handleDeletePrinter = async (printer) => {
     if (!printer?.id && !printer?.identifier) {
@@ -115,6 +130,15 @@ function PrinterListPage() {
         </div>
       </div>
 
+      <Tabs
+        tabs={[
+          { value: "BLUETOOTH", label: `Bluetooth (${counts.bluetooth})` },
+          { value: "NETWORK", label: `Jaringan (${counts.network})` },
+        ]}
+        active={tab}
+        onChange={setTab}
+      />
+
       <SearchBar value={search} onChange={setSearch} />
 
       {loading && <Loader text="Loading printers..." />}
@@ -149,6 +173,7 @@ function PrinterListPage() {
       />
       <AddPrinterModal
         isOpen={addPrinterOpen}
+        defaultType={tab}
         onClose={() => setAddPrinterOpen(false)}
         onSuccess={loadData}
       />
